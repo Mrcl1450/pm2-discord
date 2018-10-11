@@ -1,8 +1,8 @@
-'use strict';
-var pm2 = require('pm2');
-var pmx = require('pmx');
-var request = require('request');
-var stripAnsi = require('strip-ansi');
+"use strict";
+var pm2 = require("pm2");
+var pmx = require("pmx");
+var request = require("request");
+var stripAnsi = require("strip-ansi");
 
 // Get the configuration from PM2
 var conf = pmx.initModule();
@@ -23,7 +23,6 @@ var suppressed = {
   date: new Date().getTime()
 };
 
-
 // Function to send event to Discord's Incoming Webhook
 function sendToDiscord(message) {
 
@@ -36,19 +35,19 @@ function sendToDiscord(message) {
 
   // The JSON payload to send to the Webhook
   var payload = {
-    "content" : description
+    "content": description
   };
 
   // Options for the post request
   var options = {
-    method: 'post',
+    method: "post",
     body: payload,
     json: true,
     url: conf.discord_url
   };
 
   // Finally, make the post request to the Discord Incoming Webhook
-  request(options, function(err, res, body) {
+  request(options, function(err, res, body) { // eslint-disable-line no-unused-vars
     if (err) {
       return console.error(err);
     }
@@ -69,9 +68,9 @@ function bufferMessage() {
 
   // continue shifting elements off the queue while they are the same event and 
   // timestamp so they can be buffered together into a single request
-  while (messages.length && 
-    (messages[0].timestamp >= nextMessage.timestamp && 
-      messages[0].timestamp < (nextMessage.timestamp + conf.buffer_seconds)) && 
+  while (messages.length &&
+    (messages[0].timestamp >= nextMessage.timestamp &&
+      messages[0].timestamp < (nextMessage.timestamp + conf.buffer_seconds)) &&
     messages[0].event === nextMessage.event) {
 
     // append description to our buffer and shift the message off the queue and discard it
@@ -102,9 +101,9 @@ function processQueue() {
       suppressed.isSuppressed = true;
       suppressed.date = new Date().getTime();
       sendToDiscord({
-          name: 'pm2-discord',
-          event: 'suppressed',
-          description: 'Messages are being suppressed due to rate limiting.'
+        name: "pm2-discord",
+        event: "suppressed",
+        description: "Messages are being suppressed due to rate limiting."
       });
     }
     messages.splice(conf.queue_max, messages.length);
@@ -123,7 +122,7 @@ function processQueue() {
 
 function createMessage(data, eventName, altDescription) {
   // we don't want to output pm2-discord's logs
-  if (data.process.name === 'pm2-discord') {
+  if (data.process.name === "pm2-discord") {
     return;
   }
   // if a specific process name was specified then we check to make sure only 
@@ -135,7 +134,7 @@ function createMessage(data, eventName, altDescription) {
   var msg = altDescription || data.data;
   if (typeof msg === "object") {
     msg = JSON.stringify(msg);
-  } 
+  }
 
   messages.push({
     name: data.process.name,
@@ -148,47 +147,47 @@ function createMessage(data, eventName, altDescription) {
 // Start listening on the PM2 BUS
 pm2.launchBus(function(err, bus) {
 
-    // Listen for process logs
-    if (conf.log) {
-      bus.on('log:out', function(data) {
-        createMessage(data, 'log');
-      });
-    }
-
-    // Listen for process errors
-    if (conf.error) {
-      bus.on('log:err', function(data) {
-        createMessage(data, 'error');
-      });
-    }
-
-    // Listen for PM2 kill
-    if (conf.kill) {
-      bus.on('pm2:kill', function(data) {
-        messages.push({
-          name: 'PM2',
-          event: 'kill',
-          description: data.msg,
-          timestamp: Math.floor(Date.now() / 1000),
-        });
-      });
-    }
-
-    // Listen for process exceptions
-    if (conf.exception) {
-      bus.on('process:exception', function(data) {
-        createMessage(data, 'exception');
-      });
-    }
-
-    // Listen for PM2 events
-    bus.on('process:event', function(data) {
-      if (!conf[data.event]) { return; }
-      var msg = 'The following event has occured on the PM2 process ' + data.process.name + ': ' + data.event;
-      createMessage(data, data.event, msg);
+  // Listen for process logs
+  if (conf.log) {
+    bus.on("log:out", function(data) {
+      createMessage(data, "log");
     });
+  }
 
-    // Start the message processing
-    processQueue();
+  // Listen for process errors
+  if (conf.error) {
+    bus.on("log:err", function(data) {
+      createMessage(data, "error");
+    });
+  }
+
+  // Listen for PM2 kill
+  if (conf.kill) {
+    bus.on("pm2:kill", function(data) {
+      messages.push({
+        name: "PM2",
+        event: "kill",
+        description: data.msg,
+        timestamp: Math.floor(Date.now() / 1000),
+      });
+    });
+  }
+
+  // Listen for process exceptions
+  if (conf.exception) {
+    bus.on("process:exception", function(data) {
+      createMessage(data, "exception");
+    });
+  }
+
+  // Listen for PM2 events
+  bus.on("process:event", function(data) {
+    if (!conf[data.event]) { return; }
+    var msg = "The following event has occured on the PM2 process " + data.process.name + ": " + data.event;
+    createMessage(data, data.event, msg);
+  });
+
+  // Start the message processing
+  processQueue();
 
 });
